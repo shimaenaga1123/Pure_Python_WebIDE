@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Python IDE</title>
+        <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+        <script type="module">
+            import { EditorView, basicSetup } from "https://esm.sh/codemirror";
+            import { python } from "https://esm.sh/@codemirror/lang-python";
+            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
+            import { linter } from "https://esm.sh/@codemirror/lint";
+            import { vsCodeDark } from "https://esm.sh/@fsegurai/codemirror-theme-vscode-dark";
+
+            const pyodide = await loadPyodide();
+
+            window.EditorView = EditorView;
+            window.basicSetup = basicSetup;
+            window.python_lang = python;
+            window.autocompletion = autocompletion;
+            window.linter = linter;
+            window.pyodide = pyodide;
+            window.vsCodeDark = vsCodeDark;
+
+            await pyodide.loadPackage("jedi");
+
+            await pyodide.runPythonAsync(
+                await (await fetch("/{{ filename }}")).text(),
+            );
+        </script>
+        %sveltekit.head%
+    </head>
+    <body data-sveltekit-preload-data="hover">
+        <div style="display: contents">%sveltekit.body%</div>
+    </body>
+</html>
