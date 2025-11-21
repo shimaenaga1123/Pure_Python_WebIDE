@@ -5,10 +5,9 @@ if platform.system() == "Emscripten":
     import sys
     import time
     import traceback
-    from io import StringIO
 
     import jedi
-    from js import document, window
+    from js import Promise, document, window
     from pyodide.ffi import create_proxy, to_js
 
     EditorView = window.EditorView
@@ -18,14 +17,12 @@ if platform.system() == "Emscripten":
     linter = window.linter
     vsCodeDark = window.vsCodeDark
 
-    # UI 요소들
     editor_container = document.getElementById("editor")
     output_element = document.getElementById("output")
     status_element = document.getElementById("status")
     exec_time_element = document.getElementById("execTime")
     loading_element = document.getElementById("loading")
 
-    # 입력 Promise resolver 저장용
     input_resolver = None
     current_input_element = None
 
@@ -163,7 +160,6 @@ print(f"sqrt({num}) = {result}")"""
         )
     )
 
-    # 터미널 출력에 텍스트 추가하는 함수
     def append_to_terminal(text, scroll=True):
         # 텍스트 노드 생성
         text_node = document.createTextNode(text)
@@ -175,19 +171,16 @@ print(f"sqrt({num}) = {result}")"""
     async def custom_input(prompt=""):
         global input_resolver, current_input_element
 
-        # 프롬프트를 터미널에 표시 (줄바꿈 없이)
         if prompt:
             prompt_node = document.createTextNode(prompt)
             output_element.appendChild(prompt_node)
 
-        # 인라인 input 요소 생성
         input_elem = document.createElement("input")
         input_elem.type = "text"
         input_elem.className = "inline-input"
         input_elem.autocomplete = "off"
         input_elem.spellcheck = False
 
-        # Enter 키 이벤트 리스너
         def handle_keypress(event):
             if event.key == "Enter":
                 global input_resolver
@@ -198,15 +191,10 @@ print(f"sqrt({num}) = {result}")"""
 
         input_elem.addEventListener("keypress", create_proxy(handle_keypress))
 
-        # input 요소를 출력 영역에 추가
         output_element.appendChild(input_elem)
         current_input_element = input_elem
 
-        # 포커스 설정
         input_elem.focus()
-
-        # Promise를 사용하여 입력 대기
-        from js import Promise
 
         def executor(resolve, reject):
             global input_resolver
@@ -215,22 +203,18 @@ print(f"sqrt({num}) = {result}")"""
         promise = Promise.new(executor)
         result = await promise
 
-        # input 요소를 텍스트로 교체
         input_value = input_elem.value
         output_element.removeChild(input_elem)
 
-        # 입력값을 텍스트로 표시하고 줄바꿈
         value_node = document.createTextNode(input_value + "\n")
         output_element.appendChild(value_node)
 
         current_input_element = None
 
-        # 스크롤
         output_element.scrollTop = output_element.scrollHeight
 
         return result
 
-    # 실시간 터미널 출력을 위한 커스텀 stdout/stderr 클래스
     class TerminalOutputStream:
         def __init__(self, is_error=False):
             self.is_error = is_error
@@ -238,9 +222,7 @@ print(f"sqrt({num}) = {result}")"""
 
         def write(self, text):
             if text:
-                # 실시간으로 터미널에 출력
                 append_to_terminal(text, scroll=True)
-                # 나중에 참조하기 위해 버퍼에도 저장
                 self.buffer.append(text)
 
         def flush(self):
@@ -249,11 +231,9 @@ print(f"sqrt({num}) = {result}")"""
         def getvalue(self):
             return "".join(self.buffer)
 
-    # Python 코드 실행 함수
     async def run_code(event):
         code = view.state.doc.toString()
 
-        # 실시간 출력을 위한 커스텀 stdout/stderr 설정
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         redirected_output = TerminalOutputStream()
@@ -265,41 +245,32 @@ print(f"sqrt({num}) = {result}")"""
         status_element.textContent = "실행 중..."
         status_element.style.color = "#ff9800"
 
-        # 터미널 초기화
         output_element.innerHTML = ""
 
         start_time = time.time()
 
         try:
-            # 코드 실행 환경에 커스텀 input 함수 추가
             import builtins
             import re
 
             old_input = builtins.input
             builtins.input = custom_input
 
-            # 사용자 코드에서 input() 호출을 (await input())으로 변환
-            # input(...)을 찾아서 (await input(...))으로 변경
             def transform_input_calls(code):
                 result = []
                 i = 0
                 while i < len(code):
-                    # input( 패턴 찾기
                     match = re.search(r"\binput\s*\(", code[i:])
                     if not match:
                         result.append(code[i:])
                         break
 
-                    # 매치 이전 부분 추가
                     result.append(code[i : i + match.start()])
 
-                    # (await input( 추가
                     result.append("(await input(")
 
-                    # 여는 괄호 위치
                     paren_start = i + match.end()
 
-                    # 매칭되는 닫는 괄호 찾기
                     paren_count = 1
                     j = paren_start
                     in_string = False
@@ -308,7 +279,6 @@ print(f"sqrt({num}) = {result}")"""
                     while j < len(code) and paren_count > 0:
                         char = code[j]
 
-                        # 문자열 처리
                         if char in ['"', "'"]:
                             if not in_string:
                                 in_string = True
@@ -319,7 +289,6 @@ print(f"sqrt({num}) = {result}")"""
                                 in_string = False
                                 string_char = None
 
-                        # 괄호 카운트 (문자열 밖에서만)
                         elif not in_string:
                             if char == "(":
                                 paren_count += 1
@@ -328,10 +297,8 @@ print(f"sqrt({num}) = {result}")"""
 
                         j += 1
 
-                    # input의 인자 부분 추가
                     result.append(code[paren_start : j - 1])
 
-                    # 닫는 괄호 두 개 추가 (input의 괄호 + await의 괄호)
                     result.append("))")
 
                     i = j
@@ -343,8 +310,6 @@ print(f"sqrt({num}) = {result}")"""
             if transformed_code.strip() == "":
                 transformed_code = "pass"
 
-            # 사용자 코드를 async 함수로 래핑
-            # 각 라인에 들여쓰기 추가
             indented_code = "\n".join(
                 "    " + line for line in transformed_code.split("\n")
             )
@@ -352,24 +317,56 @@ print(f"sqrt({num}) = {result}")"""
 {indented_code}
 """
 
-            # 실행 환경 설정
+            def restricted_import(name, *args, **kwargs):
+                if name == "js" or name.startswith("js."):
+                    raise ImportError(
+                        "보안상의 이유로 'js' 모듈을 임포트할 수 없습니다."
+                    )
+                elif name == "pyodide" or name.startswith("pyodide."):
+                    raise ImportError(
+                        "보안상의 이유로 'pyodide' 모듈을 임포트할 수 없습니다."
+                    )
+                elif name == "pyodide_js" or name.startswith("pyodide_js."):
+                    raise ImportError(
+                        "보안상의 이유로 'pyodide_js' 모듈을 임포트할 수 없습니다."
+                    )
+                return __import__(name, *args, **kwargs)
+
+            import types
+
+            restricted_builtins = types.ModuleType("builtins")
+            for attr in dir(builtins):
+                if attr == "__import__":
+                    setattr(restricted_builtins, attr, restricted_import)
+                else:
+                    setattr(restricted_builtins, attr, getattr(builtins, attr))
+
+            import sys as original_sys
+
+            removed_modules = {}
+            for mod_name in list(original_sys.modules.keys()):
+                if (
+                    mod_name == "js"
+                    or mod_name.startswith("js.")
+                    or mod_name == "pyodide"
+                    or mod_name.startswith("pyodide.")
+                    or mod_name == "pyodide_js"
+                    or mod_name.startswith("pyodide_js.")
+                ):
+                    removed_modules[mod_name] = original_sys.modules.pop(mod_name)
+
             exec_globals = {
                 "__name__": "__main__",
-                "__builtins__": builtins,
-                "__import__": lambda name: __import__(name) if name != "js" else None,
+                "__builtins__": restricted_builtins,
             }
 
-            # 래핑된 코드 실행
             exec(wrapped_code, exec_globals)
 
-            # __user_main__ 함수 실행
             await exec_globals["__user_main__"]()
 
-            # 출력 확인 (이미 실시간으로 표시됨)
             stdout_value = redirected_output.getvalue()
             stderr_value = redirected_error.getvalue()
 
-            # 출력이 전혀 없었을 경우에만 메시지 표시
             if not stdout_value and not stderr_value:
                 append_to_terminal("(출력 없음)\n", scroll=True)
 
@@ -378,44 +375,38 @@ print(f"sqrt({num}) = {result}")"""
             status_element.style.color = "#4CAF50"
             exec_time_element.textContent = f"{elapsed:.3f}초"
 
-            # input 함수 복원
             builtins.input = old_input
 
-        except Exception as e:
-            # 에러 출력 (이미 실시간으로 표시된 stderr 위에 추가)
-            error_output = redirected_error.getvalue()
-
-            # traceback만 추가로 출력
-            append_to_terminal("\n=== 에러 발생 ===\n", scroll=True)
+        except Exception:
+            append_to_terminal("=== 에러 발생 ===\n", scroll=True)
             append_to_terminal(traceback.format_exc() + "\n", scroll=True)
 
             status_element.textContent = "에러 발생"
             status_element.style.color = "#f44336"
             exec_time_element.textContent = ""
 
-            # 현재 입력 요소 제거 (에러 시)
             global current_input_element
             if current_input_element:
                 try:
                     output_element.removeChild(current_input_element)
                     current_input_element = None
-                except:
+                except Exception:
                     pass
 
-            # input 함수 복원 (에러 시에도)
             import builtins
 
             try:
                 builtins.input = old_input
-            except:
+            except Exception:
                 pass
 
         finally:
-            # stdout, stderr 복원
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
-    # 에디터 지우기 함수
+            for mod_name, mod in removed_modules.items():
+                original_sys.modules[mod_name] = mod
+
     def clear_editor(event):
         view.dispatch(
             to_js(
@@ -429,7 +420,6 @@ print(f"sqrt({num}) = {result}")"""
         status_element.textContent = "에디터 초기화됨"
         status_element.style.color = "#5f6368"
 
-    # 출력 지우기 함수
     def clear_output(event):
         global current_input_element
         output_element.innerHTML = ""
@@ -438,7 +428,6 @@ print(f"sqrt({num}) = {result}")"""
         exec_time_element.textContent = ""
         current_input_element = None
 
-    # 버튼 이벤트 리스너 등록
     run_btn = document.getElementById("runBtn")
     clear_btn = document.getElementById("clearBtn")
     clear_output_btn = document.getElementById("clearOutputBtn")
@@ -447,10 +436,8 @@ print(f"sqrt({num}) = {result}")"""
     clear_btn.addEventListener("click", create_proxy(clear_editor))
     clear_output_btn.addEventListener("click", create_proxy(clear_output))
 
-    # 로딩 화면 숨기기
     loading_element.classList.add("hidden")
 
-    # 초기화 완료 상태 표시
     status_element.textContent = "준비 완료"
     status_element.style.color = "#4CAF50"
 
@@ -473,7 +460,155 @@ else:
 
     @route("/")
     def main():
-        return template("index.html", filename=os.path.basename(__file__))
+        return template(
+            """
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Python IDE</title>
+        <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+        <script type="module">
+            import { EditorView, basicSetup } from "https://esm.sh/codemirror";
+            import { python } from "https://esm.sh/@codemirror/lang-python";
+            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
+            import { linter } from "https://esm.sh/@codemirror/lint";
+            import { vsCodeDark } from "https://esm.sh/@fsegurai/codemirror-theme-vscode-dark";
+
+            const pyodide = await loadPyodide();
+
+            window.EditorView = EditorView;
+            window.basicSetup = basicSetup;
+            window.python_lang = python;
+            window.autocompletion = autocompletion;
+            window.linter = linter;
+            window.pyodide = pyodide;
+            window.vsCodeDark = vsCodeDark;
+
+            await pyodide.loadPackage("micropip");
+            await pyodide.loadPackage("jedi");
+
+            await pyodide.runPythonAsync(
+                await (await fetch("/{{ filename }}")).text(),
+            );
+        </script>
+
+        <link href="./style.css" rel="stylesheet" />
+    </head>
+    <body data-sveltekit-preload-data="hover">
+        <div style="display: contents">
+            <div class="loading svelte-1uha8ag" id="loading">
+                <div class="loading-content svelte-1uha8ag">
+                    <img
+                        src="./loading.svg"
+                        alt="Loading..."
+                        class="svelte-ruye1y center"
+                    />
+                    <div class="m3-font-body-large svelte-1uha8ag">
+                        Python 환경 로딩 중...
+                    </div>
+                </div>
+            </div>
+            <div class="container svelte-1uha8ag">
+                <header class="header svelte-1uha8ag">
+                    <h1 class="m3-font-display-large svelte-1uha8ag">
+                        Python IDE
+                    </h1>
+                    <p class="m3-font-body-medium svelte-1uha8ag">
+                        인터랙티브 Python 실행 환경
+                    </p>
+                </header>
+                <main class="main-content svelte-1uha8ag">
+                    <div class="ide-layout svelte-1uha8ag">
+                        <div
+                            class="m3-container filled svelte-mxwuxu"
+                            id="editor-section"
+                        >
+                            <div class="section-header svelte-1uha8ag">
+                                <h2 class="m3-font-title-medium svelte-1uha8ag">
+                                    코드 에디터
+                                </h2>
+                            </div>
+                            <div
+                                class="editor-wrapper svelte-1uha8ag"
+                                id="editor"
+                            ></div>
+                            <div class="controls svelte-1uha8ag">
+                                <button
+                                    type="submit"
+                                    class="m3-container filled s icon-none svelte-eefjof"
+                                    id="runBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    실행
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="m3-container tonal s icon-none svelte-eefjof"
+                                    id="clearBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    지우기
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="m3-container outlined s icon-none svelte-eefjof"
+                                    id="clearOutputBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    출력 지우기
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            class="m3-container filled svelte-mxwuxu"
+                            id="output-section"
+                        >
+                            <div class="section-header svelte-1uha8ag">
+                                <h2 class="m3-font-title-medium svelte-1uha8ag">
+                                    터미널
+                                </h2>
+                            </div>
+                            <div class="terminal-wrapper svelte-1uha8ag">
+                                <div
+                                    class="output-content svelte-1uha8ag"
+                                    id="output"
+                                ></div>
+                            </div>
+                            <div class="status-bar svelte-1uha8ag">
+                                <span
+                                    class="m3-font-label-medium svelte-1uha8ag"
+                                    id="status"
+                                    >준비</span
+                                >
+                                <span
+                                    class="m3-font-label-small svelte-1uha8ag"
+                                    id="execTime"
+                                ></span>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </body>
+</html>
+            """,
+            filename=os.path.basename(__file__),
+        )
 
     @route("/<path:path>")
     def get_static(path):

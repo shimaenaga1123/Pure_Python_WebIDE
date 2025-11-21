@@ -722,6 +722,7 @@
 }
 :root {
     --m3-card-shape: var(--m3-util-rounding-medium);
+    overflow: hidden;
 }
 .m3-container.svelte-mxwuxu {
     display: flex;
@@ -853,6 +854,7 @@ body {
     flex-direction: column;
     gap: 1rem;
     min-height: 600px;
+    min-width: 600px;
 }
 .section-header.svelte-1uha8ag {
     padding-bottom: 0.5rem;
