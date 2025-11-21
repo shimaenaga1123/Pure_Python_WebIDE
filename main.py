@@ -494,14 +494,14 @@ else:
             );
         </script>
 
-        <link href="./style.css" rel="stylesheet" />
+        <link href="https://shimaenaga1123.github.io/Pure_Python_WebIDE/style.css" rel="stylesheet" />
     </head>
     <body data-sveltekit-preload-data="hover">
         <div style="display: contents">
             <div class="loading svelte-1uha8ag" id="loading">
                 <div class="loading-content svelte-1uha8ag">
                     <img
-                        src="./loading.svg"
+                        src="https://shimaenaga1123.github.io/Pure_Python_WebIDE/loading.svg"
                         alt="Loading..."
                         class="svelte-ruye1y center"
                     />
