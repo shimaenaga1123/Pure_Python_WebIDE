@@ -1,5 +1,10 @@
 <script>
-    import { Card, Button, LoadingIndicator } from "m3-svelte";
+    import {
+        Card,
+        Button,
+        LoadingIndicator,
+        TextFieldOutlined,
+    } from "m3-svelte";
 </script>
 
 <div class="loading" id="loading">
@@ -28,6 +33,11 @@
                     <Button variant="tonal" id="clearBtn">지우기</Button>
                     <Button variant="outlined" id="clearOutputBtn"
                         >출력 지우기</Button
+                    >
+                </div>
+                <div class="controls">
+                    <TextFieldOutlined label="패키지 이름" />
+                    <Button variant="filled" id="installBtn">패키지 설치</Button
                     >
                 </div>
             </Card>
@@ -181,7 +191,7 @@
     .output-content {
         padding: 1rem;
         height: 100%;
-        overflow-y: auto;
+        overflow-y: scroll;
         font-family: "Fira Code", "Consolas", "Monaco", monospace;
         font-size: 14px;
         line-height: 1.6;

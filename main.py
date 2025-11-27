@@ -161,7 +161,6 @@ print(f"sqrt({num}) = {result}")"""
     )
 
     def append_to_terminal(text, scroll=True):
-        # 텍스트 노드 생성
         text_node = document.createTextNode(text)
         output_element.appendChild(text_node)
 
@@ -234,8 +233,6 @@ print(f"sqrt({num}) = {result}")"""
     async def run_code(event):
         code = view.state.doc.toString()
 
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
         redirected_output = TerminalOutputStream()
         redirected_error = TerminalOutputStream(is_error=True)
 
@@ -393,20 +390,6 @@ print(f"sqrt({num}) = {result}")"""
                 except Exception:
                     pass
 
-            import builtins
-
-            try:
-                builtins.input = old_input
-            except Exception:
-                pass
-
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
-            for mod_name, mod in removed_modules.items():
-                original_sys.modules[mod_name] = mod
-
     def clear_editor(event):
         view.dispatch(
             to_js(
@@ -428,13 +411,48 @@ print(f"sqrt({num}) = {result}")"""
         exec_time_element.textContent = ""
         current_input_element = None
 
+    async def install_package(event):
+        package_input = document.getElementById("packageInput")
+        package_name = package_input.value.strip()
+
+        if not package_name:
+            status_element.textContent = "패키지 이름을 입력하세요"
+            status_element.style.color = "#f44336"
+            return
+
+        status_element.textContent = f"{package_name} 설치 중..."
+        status_element.style.color = "#ff9800"
+
+        try:
+            import micropip
+
+            await micropip.install(package_name)
+
+            status_element.textContent = f"{package_name} 설치 완료"
+            status_element.style.color = "#4CAF50"
+
+            package_input.value = ""
+
+            async def reset_status():
+                await asyncio.sleep(2)
+                status_element.textContent = "준비"
+                status_element.style.color = "#5f6368"
+
+            asyncio.create_task(reset_status())
+
+        except Exception as e:
+            status_element.textContent = f"설치 실패: {str(e)}"
+            status_element.style.color = "#f44336"
+
     run_btn = document.getElementById("runBtn")
     clear_btn = document.getElementById("clearBtn")
     clear_output_btn = document.getElementById("clearOutputBtn")
+    install_btn = document.getElementById("installBtn")
 
     run_btn.addEventListener("click", create_proxy(run_code))
     clear_btn.addEventListener("click", create_proxy(clear_editor))
     clear_output_btn.addEventListener("click", create_proxy(clear_output))
+    install_btn.addEventListener("click", create_proxy(install_package))
 
     loading_element.classList.add("hidden")
 
@@ -557,7 +575,7 @@ else:
                                         class="ripple-container broken svelte-1q4u1kv"
                                     ></div>
                                     <div class="tint svelte-1q4u1kv"></div>
-                                    지우기
+                                    초기화
                                 </button>
                                 <button
                                     type="submit"
@@ -570,6 +588,27 @@ else:
                                     ></div>
                                     <div class="tint svelte-1q4u1kv"></div>
                                     출력 지우기
+                                </button>
+                            </div>
+                            <div class="controls svelte-1uha8ag">
+                                <div class="m3-container svelte-6b5eoq">
+                                    <input
+                                        class="focus-none m3-font-body-large svelte-6b5eoq"
+                                        placeholder="패키지 이름"
+                                        id="packageInput"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="m3-container filled s icon-none svelte-eefjof"
+                                    id="installBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    패키지 설치
                                 </button>
                             </div>
                         </div>
