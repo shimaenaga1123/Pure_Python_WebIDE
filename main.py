@@ -508,7 +508,7 @@ else:
             await pyodide.loadPackage("jedi");
 
             await pyodide.runPythonAsync(
-                await (await fetch("/{{ filename }}")).text(),
+                await (await fetch("/main")).text(),
             );
         </script>
 
@@ -646,12 +646,11 @@ else:
     </body>
 </html>
             """,
-            filename=os.path.basename(__file__),
         )
 
-    @route("/<path:path>")
-    def get_static(path):
-        return static_file(path, root="")
+    @route("/main")
+    def get_static():
+        return open(__file__).read()
 
     if __name__ == "__main__":
         run(host="localhost", port=3000, debug=True, reloader=True)
