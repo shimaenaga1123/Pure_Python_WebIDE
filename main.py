@@ -1,6 +1,202 @@
 import platform
 
-if platform.system() == "Emscripten":
+if platform.system() != "Emscripten":
+    import asyncio
+    import webbrowser
+
+    try:
+        from bottle import route, run, template
+    except ImportError:
+        import pip
+
+        pip.main(["install", "bottle"])
+        from bottle import route, run, template
+
+    @route("/")
+    def index():
+        return template(
+            """
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Python IDE</title>
+        <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
+        <script type="module">
+            import { EditorView, basicSetup } from "https://esm.sh/codemirror";
+            import { python } from "https://esm.sh/@codemirror/lang-python";
+            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
+            import { linter } from "https://esm.sh/@codemirror/lint";
+            import { vsCodeDark } from "https://esm.sh/@fsegurai/codemirror-theme-vscode-dark";
+
+            const pyodide = await loadPyodide();
+
+            window.EditorView = EditorView;
+            window.basicSetup = basicSetup;
+            window.python_lang = python;
+            window.autocompletion = autocompletion;
+            window.linter = linter;
+            window.pyodide = pyodide;
+            window.vsCodeDark = vsCodeDark;
+
+            await pyodide.loadPackage("micropip");
+            await pyodide.loadPackage("jedi");
+
+            await pyodide.runPythonAsync(
+                await (await fetch("/main")).text(),
+            );
+        </script>
+
+        <link href="https://shimaenaga1123.github.io/Pure_Python_WebIDE/style.css" rel="stylesheet" />
+    </head>
+    <body data-sveltekit-preload-data="hover">
+        <div style="display: contents">
+            <div class="loading svelte-1uha8ag" id="loading">
+                <div class="loading-content svelte-1uha8ag">
+                    <img
+                        src="https://shimaenaga1123.github.io/Pure_Python_WebIDE/loading.svg"
+                        alt="Loading..."
+                        class="svelte-ruye1y center"
+                    />
+                    <div class="m3-font-body-large svelte-1uha8ag">
+                        Python 환경 로딩 중...
+                    </div>
+                </div>
+            </div>
+            <div class="container svelte-1uha8ag">
+                <header class="header svelte-1uha8ag">
+                    <h1 class="m3-font-display-large svelte-1uha8ag">
+                        Python IDE
+                    </h1>
+                    <p class="m3-font-body-medium svelte-1uha8ag">
+                        인터랙티브 Python 실행 환경
+                    </p>
+                </header>
+                <main class="main-content svelte-1uha8ag">
+                    <div class="ide-layout svelte-1uha8ag">
+                        <div
+                            class="m3-container filled svelte-mxwuxu"
+                            id="editor-section"
+                        >
+                            <div class="section-header svelte-1uha8ag">
+                                <h2 class="m3-font-title-medium svelte-1uha8ag">
+                                    코드 에디터
+                                </h2>
+                            </div>
+                            <div
+                                class="editor-wrapper svelte-1uha8ag"
+                                id="editor"
+                            ></div>
+                            <div class="controls svelte-1uha8ag">
+                                <button
+                                    type="submit"
+                                    class="m3-container filled s icon-none svelte-eefjof"
+                                    id="runBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    실행
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="m3-container tonal s icon-none svelte-eefjof"
+                                    id="clearBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    초기화
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="m3-container outlined s icon-none svelte-eefjof"
+                                    id="clearOutputBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    출력 지우기
+                                </button>
+                            </div>
+                            <div class="controls svelte-1uha8ag">
+                                <div class="m3-container svelte-6b5eoq">
+                                    <input
+                                        class="focus-none m3-font-body-large svelte-6b5eoq"
+                                        placeholder="패키지 이름"
+                                        id="packageInput"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="m3-container filled s icon-none svelte-eefjof"
+                                    id="installBtn"
+                                >
+                                    <div class="hitbox svelte-1q4u1kv"></div>
+                                    <div
+                                        class="ripple-container broken svelte-1q4u1kv"
+                                    ></div>
+                                    <div class="tint svelte-1q4u1kv"></div>
+                                    패키지 설치
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            class="m3-container filled svelte-mxwuxu"
+                            id="output-section"
+                        >
+                            <div class="section-header svelte-1uha8ag">
+                                <h2 class="m3-font-title-medium svelte-1uha8ag">
+                                    터미널
+                                </h2>
+                            </div>
+                            <div class="terminal-wrapper svelte-1uha8ag">
+                                <div
+                                    class="output-content svelte-1uha8ag"
+                                    id="output"
+                                ></div>
+                            </div>
+                            <div class="status-bar svelte-1uha8ag">
+                                <span
+                                    class="m3-font-label-medium svelte-1uha8ag"
+                                    id="status"
+                                    >준비</span
+                                >
+                                <span
+                                    class="m3-font-label-small svelte-1uha8ag"
+                                    id="execTime"
+                                ></span>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </body>
+</html>
+            """,
+        )
+
+    @route("/main")
+    def get_static():
+        return open(__file__).read()
+
+    async def main():
+        await asyncio.sleep(1)
+        webbrowser.open_new_tab("http://localhost:3000")
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+        run(host="localhost", port=3000)
+
+else:
     import asyncio
     import sys
     import time
@@ -465,192 +661,3 @@ print(f"sqrt({num}) = {result}")"""
         status_element.style.color = "#5f6368"
 
     asyncio.create_task(show_ready())
-else:
-    import os
-
-    try:
-        from bottle import route, run, static_file, template
-    except ImportError:
-        import pip
-
-        pip.main(["install", "bottle"])
-        from bottle import route, run, static_file, template
-
-    @route("/")
-    def main():
-        return template(
-            """
-<!doctype html>
-<html lang="ko">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Python IDE</title>
-        <script src="https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js"></script>
-        <script type="module">
-            import { EditorView, basicSetup } from "https://esm.sh/codemirror";
-            import { python } from "https://esm.sh/@codemirror/lang-python";
-            import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
-            import { linter } from "https://esm.sh/@codemirror/lint";
-            import { vsCodeDark } from "https://esm.sh/@fsegurai/codemirror-theme-vscode-dark";
-
-            const pyodide = await loadPyodide();
-
-            window.EditorView = EditorView;
-            window.basicSetup = basicSetup;
-            window.python_lang = python;
-            window.autocompletion = autocompletion;
-            window.linter = linter;
-            window.pyodide = pyodide;
-            window.vsCodeDark = vsCodeDark;
-
-            await pyodide.loadPackage("micropip");
-            await pyodide.loadPackage("jedi");
-
-            await pyodide.runPythonAsync(
-                await (await fetch("/main")).text(),
-            );
-        </script>
-
-        <link href="https://shimaenaga1123.github.io/Pure_Python_WebIDE/style.css" rel="stylesheet" />
-    </head>
-    <body data-sveltekit-preload-data="hover">
-        <div style="display: contents">
-            <div class="loading svelte-1uha8ag" id="loading">
-                <div class="loading-content svelte-1uha8ag">
-                    <img
-                        src="https://shimaenaga1123.github.io/Pure_Python_WebIDE/loading.svg"
-                        alt="Loading..."
-                        class="svelte-ruye1y center"
-                    />
-                    <div class="m3-font-body-large svelte-1uha8ag">
-                        Python 환경 로딩 중...
-                    </div>
-                </div>
-            </div>
-            <div class="container svelte-1uha8ag">
-                <header class="header svelte-1uha8ag">
-                    <h1 class="m3-font-display-large svelte-1uha8ag">
-                        Python IDE
-                    </h1>
-                    <p class="m3-font-body-medium svelte-1uha8ag">
-                        인터랙티브 Python 실행 환경
-                    </p>
-                </header>
-                <main class="main-content svelte-1uha8ag">
-                    <div class="ide-layout svelte-1uha8ag">
-                        <div
-                            class="m3-container filled svelte-mxwuxu"
-                            id="editor-section"
-                        >
-                            <div class="section-header svelte-1uha8ag">
-                                <h2 class="m3-font-title-medium svelte-1uha8ag">
-                                    코드 에디터
-                                </h2>
-                            </div>
-                            <div
-                                class="editor-wrapper svelte-1uha8ag"
-                                id="editor"
-                            ></div>
-                            <div class="controls svelte-1uha8ag">
-                                <button
-                                    type="submit"
-                                    class="m3-container filled s icon-none svelte-eefjof"
-                                    id="runBtn"
-                                >
-                                    <div class="hitbox svelte-1q4u1kv"></div>
-                                    <div
-                                        class="ripple-container broken svelte-1q4u1kv"
-                                    ></div>
-                                    <div class="tint svelte-1q4u1kv"></div>
-                                    실행
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="m3-container tonal s icon-none svelte-eefjof"
-                                    id="clearBtn"
-                                >
-                                    <div class="hitbox svelte-1q4u1kv"></div>
-                                    <div
-                                        class="ripple-container broken svelte-1q4u1kv"
-                                    ></div>
-                                    <div class="tint svelte-1q4u1kv"></div>
-                                    초기화
-                                </button>
-                                <button
-                                    type="submit"
-                                    class="m3-container outlined s icon-none svelte-eefjof"
-                                    id="clearOutputBtn"
-                                >
-                                    <div class="hitbox svelte-1q4u1kv"></div>
-                                    <div
-                                        class="ripple-container broken svelte-1q4u1kv"
-                                    ></div>
-                                    <div class="tint svelte-1q4u1kv"></div>
-                                    출력 지우기
-                                </button>
-                            </div>
-                            <div class="controls svelte-1uha8ag">
-                                <div class="m3-container svelte-6b5eoq">
-                                    <input
-                                        class="focus-none m3-font-body-large svelte-6b5eoq"
-                                        placeholder="패키지 이름"
-                                        id="packageInput"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    class="m3-container filled s icon-none svelte-eefjof"
-                                    id="installBtn"
-                                >
-                                    <div class="hitbox svelte-1q4u1kv"></div>
-                                    <div
-                                        class="ripple-container broken svelte-1q4u1kv"
-                                    ></div>
-                                    <div class="tint svelte-1q4u1kv"></div>
-                                    패키지 설치
-                                </button>
-                            </div>
-                        </div>
-                        <div
-                            class="m3-container filled svelte-mxwuxu"
-                            id="output-section"
-                        >
-                            <div class="section-header svelte-1uha8ag">
-                                <h2 class="m3-font-title-medium svelte-1uha8ag">
-                                    터미널
-                                </h2>
-                            </div>
-                            <div class="terminal-wrapper svelte-1uha8ag">
-                                <div
-                                    class="output-content svelte-1uha8ag"
-                                    id="output"
-                                ></div>
-                            </div>
-                            <div class="status-bar svelte-1uha8ag">
-                                <span
-                                    class="m3-font-label-medium svelte-1uha8ag"
-                                    id="status"
-                                    >준비</span
-                                >
-                                <span
-                                    class="m3-font-label-small svelte-1uha8ag"
-                                    id="execTime"
-                                ></span>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        </div>
-    </body>
-</html>
-            """,
-        )
-
-    @route("/main")
-    def get_static():
-        return open(__file__).read()
-
-    if __name__ == "__main__":
-        run(host="localhost", port=3000, debug=True, reloader=True)

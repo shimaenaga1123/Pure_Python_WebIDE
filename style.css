@@ -1043,6 +1043,7 @@ body {
     background-color: var(--m3-scheme-surface-container-high, #2b2930);
 }
 .editor-wrapper .cm-editor {
+    overflow-y: scroll;
     height: 100%;
     font-size: 14px;
     font-family:
