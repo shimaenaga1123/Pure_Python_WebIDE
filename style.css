@@ -393,7 +393,7 @@
     display: none !important;
 }
 :root {
-    overflow: auto;
+    overflow: hidden;
 }
 svg.svelte-tjrm9p {
     flex-shrink: 0;
