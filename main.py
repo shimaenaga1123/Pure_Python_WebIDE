@@ -1,18 +1,18 @@
-import platform
+import platform  # 플랫폼 감지를 위한 내장 라이브러리
 
-if platform.system() != "Emscripten":
-    import asyncio
-    import webbrowser
+if platform.system() != "Emscripten":  # 백엔드 코드 시작
+    import asyncio  # 비동기 처리를 위한 내장 라이브러리
+    import webbrowser  # 자동 브라우저 실행을 위한 내장 라이브러리
 
     try:
-        from bottle import route, run, template
-    except ImportError:
+        from bottle import route, run, template  # 백엔드 프레임워크(Flask와 유사)
+    except ImportError:  # 자동 설치 코드
         import pip
 
         pip.main(["install", "bottle"])
         from bottle import route, run, template
 
-    @route("/")
+    @route("/")  # / 요청시 HTML 페이지 반환
     def index():
         return template(
             """
@@ -184,11 +184,11 @@ if platform.system() != "Emscripten":
             """,
         )
 
-    @route("/main")
+    @route("/main")  # /main 요청시 이 파일 자체를 반환
     def get_static():
         return open(__file__).read()
 
-    async def main():
+    async def main():  # 브라우저 자동 실행을 위한 함수
         await asyncio.sleep(1)
         webbrowser.open_new_tab("http://localhost:3000")
 
@@ -196,16 +196,24 @@ if platform.system() != "Emscripten":
         asyncio.run(main())
         run(host="localhost", port=3000)
 
-else:
-    import asyncio
-    import sys
-    import time
-    import traceback
+else:  # 프론트엔드 코드 시작
+    import asyncio  # 비동기 처리를 위한 내장 라이브러리
+    import sys  # 시스템 빌트인 함수 관련 동작을 위한 내장 라이브러리
+    import time  # 시간 관련 내장 라이브러리
+    import traceback  # 에디터 내 오류 출력을 위한 내장 라이브러리
 
-    import jedi
-    from js import Promise, document, window
-    from pyodide.ffi import create_proxy, to_js
+    import jedi  # 코드 자동완성을 위한 라이브러리(브라우저 내에서 설치됨)
+    from js import (  # 브라우저를 제어하기 위한 내장 라이브러리(로컬에서 실행 불가하고 브라우저에서만 실행 가능)
+        Promise,
+        document,
+        window,
+    )
+    from pyodide.ffi import (  # 브라우저와 데이터를 주고 받기 위한 내장 라이브러리(로컬에서 실행 불가하고 브라우저에서만 실행 가능)
+        create_proxy,
+        to_js,
+    )
 
+    # 자바스크립트 라이브러리 불러오기
     EditorView = window.EditorView
     basicSetup = window.basicSetup
     python_lang = window.python_lang
@@ -213,6 +221,7 @@ else:
     linter = window.linter
     vsCodeDark = window.vsCodeDark
 
+    # HTML의 요소 가져오기
     editor_container = document.getElementById("editor")
     output_element = document.getElementById("output")
     status_element = document.getElementById("status")
@@ -222,6 +231,7 @@ else:
     input_resolver = None
     current_input_element = None
 
+    # 자동완성과 오류 표시할 때 오프셋을 좌표로 변환하기 위한 함수
     def get_line_col(text, offset):
         line = 1
         col = 0
@@ -233,6 +243,7 @@ else:
                 col += 1
         return line, col
 
+    # 자동완성과 오류 표시할 때 좌표를 오프셋으로 변환하기 위한 함수
     def pos_to_offset(text, line, col):
         lines = text.split("\n")
         offset = 0
@@ -243,6 +254,7 @@ else:
                 offset += min(col, len(lines[i]))
         return offset
 
+    # 자동 완성을 가져오기 위한 함수
     def get_completions(code, pos):
         line, col = get_line_col(code, pos)
         script = jedi.Script(code)
@@ -261,6 +273,7 @@ else:
             )
         return result
 
+    # 오류를 가져오기 위한 함수
     def get_diagnostics(code):
         errors = []
         try:
@@ -278,6 +291,7 @@ else:
             errors.append({"line": 0, "col": 0, "message": str(e), "severity": "error"})
         return errors
 
+    # 자동 완성을 자바스크립트로 보내기 위한 함수
     def python_completions_handler(context):
         code = context.state.doc.toString()
         pos = context.pos
@@ -302,6 +316,7 @@ else:
 
         return to_js({"from": word_start, "to": pos, "options": to_js(options)})
 
+    # 오류를 자바스크립트로 보내기 위한 함수
     def python_linter_handler(view):
         code = view.state.doc.toString()
         diagnostics = get_diagnostics(code)
@@ -356,6 +371,7 @@ print(f"sqrt({num}) = {result}")"""
         )
     )
 
+    # 터미널에 글자를 쓰는 함수
     def append_to_terminal(text, scroll=True):
         text_node = document.createTextNode(text)
         output_element.appendChild(text_node)
@@ -363,6 +379,7 @@ print(f"sqrt({num}) = {result}")"""
         if scroll:
             output_element.scrollTop = output_element.scrollHeight
 
+    # 터미널에서 입력을 받는 함수
     async def custom_input(prompt=""):
         global input_resolver, current_input_element
 
@@ -410,6 +427,7 @@ print(f"sqrt({num}) = {result}")"""
 
         return result
 
+    # 출력이 터미널로 나오게 stdout을 변조시키기 위한 클래스
     class TerminalOutputStream:
         def __init__(self, is_error=False):
             self.is_error = is_error
@@ -426,6 +444,7 @@ print(f"sqrt({num}) = {result}")"""
         def getvalue(self):
             return "".join(self.buffer)
 
+    # 코드 실행
     async def run_code(event):
         code = view.state.doc.toString()
 
@@ -449,6 +468,7 @@ print(f"sqrt({num}) = {result}")"""
             old_input = builtins.input
             builtins.input = custom_input
 
+            # 실시간으로 입력을 받기 위해 입력이 비동기적으로 이루어져야 하기에, input(...)을 (await input(...))로 변환하기 위한 함수
             def transform_input_calls(code):
                 result = []
                 i = 0
@@ -510,6 +530,7 @@ print(f"sqrt({num}) = {result}")"""
 {indented_code}
 """
 
+            # js를 임포트할 경우 XSS 공격 등이 가능하기에, 이를 차단하기 위해 제한된 input 함수
             def restricted_import(name, *args, **kwargs):
                 if name == "js" or name.startswith("js."):
                     raise ImportError(
@@ -586,6 +607,7 @@ print(f"sqrt({num}) = {result}")"""
                 except Exception:
                     pass
 
+    # 초기화 버튼 처리를 위한 함수
     def clear_editor(event):
         view.dispatch(
             to_js(
@@ -599,6 +621,7 @@ print(f"sqrt({num}) = {result}")"""
         status_element.textContent = "에디터 초기화됨"
         status_element.style.color = "#5f6368"
 
+    # 출력 지우기 버튼 처리를 위한 함수
     def clear_output(event):
         global current_input_element
         output_element.innerHTML = ""
@@ -607,6 +630,7 @@ print(f"sqrt({num}) = {result}")"""
         exec_time_element.textContent = ""
         current_input_element = None
 
+    # 패키지 설치 버튼 처리를 위한 함수
     async def install_package(event):
         package_input = document.getElementById("packageInput")
         package_name = package_input.value.strip()
@@ -650,6 +674,7 @@ print(f"sqrt({num}) = {result}")"""
     clear_output_btn.addEventListener("click", create_proxy(clear_output))
     install_btn.addEventListener("click", create_proxy(install_package))
 
+    # 파이썬 환경 세팅이 완전히 마무리되면 실행될 명령들
     loading_element.classList.add("hidden")
 
     status_element.textContent = "준비 완료"
